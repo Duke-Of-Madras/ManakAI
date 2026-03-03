@@ -203,6 +203,69 @@ export function useManakAI(): ManakAIData {
         isLive: true,
     });
 
+    // Fetch real scan data from persistent store
+    useEffect(() => {
+        async function fetchRealData() {
+            try {
+                const res = await fetch("/api/dashboard-stats");
+                if (!res.ok) return;
+                const stats = await res.json();
+
+                if (stats.totalScans > 0) {
+                    setData((prev) => {
+                        // Merge real building data with mock buildings
+                        const realBuildings: BuildingStatus[] = stats.heatmap.map((b: { building: string; score: number; scans: number; status: string }, i: number) => ({
+                            id: `real-${i}`,
+                            name: b.building,
+                            score: b.score,
+                            status: b.status as "compliant" | "warning" | "critical",
+                        }));
+
+                        // Combine: real buildings first, then mock buildings that don't overlap
+                        const realNames = new Set(realBuildings.map((b) => b.name.toLowerCase()));
+                        const mergedBuildings = [
+                            ...realBuildings,
+                            ...prev.buildings.filter((b) => !realNames.has(b.name.toLowerCase())),
+                        ];
+
+                        // Merge real audit feed with mock feed
+                        const mergedFeed = [
+                            ...stats.auditFeed,
+                            ...prev.auditFeed,
+                        ].slice(0, 20);
+
+                        // Merge real audit logs
+                        const realLogs: AuditLogEntry[] = stats.scans.map((s: { id: string; buildingName: string; placeName: string; overallScore: number; timestamp: string; gaps: { title: string }[] }) => ({
+                            id: s.id,
+                            timestamp: s.timestamp,
+                            action: `${s.placeName} Scan Completed`,
+                            module: "Vision-Audit",
+                            result: `Score: ${s.overallScore}% — ${s.gaps.length} gap(s) found`,
+                            score: s.overallScore,
+                            user: "System",
+                        }));
+                        const mergedLogs = [...realLogs, ...prev.auditLogs];
+
+                        // Recalculate institutional score from real data
+                        const overallScore = stats.overallAvg || prev.institutionalScore;
+
+                        return {
+                            ...prev,
+                            institutionalScore: overallScore,
+                            infraScore: Math.round(overallScore * 0.94), // derived
+                            buildings: mergedBuildings,
+                            auditFeed: mergedFeed,
+                            auditLogs: mergedLogs,
+                        };
+                    });
+                }
+            } catch {
+                // Silently fall back to mock data
+            }
+        }
+        fetchRealData();
+    }, []);
+
     // Generate a feed item
     const generateFeedItem = useCallback((): AuditFeedItem => {
         const template = FEED_MESSAGES[Math.floor(Math.random() * FEED_MESSAGES.length)];
@@ -214,8 +277,6 @@ export function useManakAI(): ManakAIData {
             type: template.type,
         };
     }, []);
-
-    // Live updates every 30 seconds (no separate initialization needed)
 
     // Live updates every 30 seconds
     useEffect(() => {
@@ -238,3 +299,4 @@ export function useManakAI(): ManakAIData {
 
     return data;
 }
+

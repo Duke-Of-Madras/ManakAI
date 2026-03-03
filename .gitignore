@@ -41,3 +41,6 @@ test-models.js
 list-models.js
 test-syllabus.txt
 scripts/
+
+# local scan data
+data/

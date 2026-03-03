@@ -5,15 +5,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { T } from "@/components/TranslatedText";
 import { useManakAI } from "@/hooks/useManakAI";
 import {
-    Library,
     Search,
     ExternalLink,
     Send,
     Bot,
     User,
     X,
-    Calendar,
-    Tag,
     Loader2,
     BookOpen,
     MessageSquare

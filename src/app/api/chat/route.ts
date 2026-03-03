@@ -49,7 +49,8 @@ Respond in a professional, helpful tone. Use bullet points for lists. Keep respo
                 section: c.section,
             })),
         });
-    } catch (error: any) {
+    } catch (err: unknown) {
+        const error = err as Error & { status?: number };
         console.error("[Chat API Error]:", error?.message || error);
 
         if (error?.status === 429 || error?.message?.includes("429")) {

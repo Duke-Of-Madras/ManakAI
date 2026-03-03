@@ -140,7 +140,8 @@ Be specific about which standards apply. Provide at least 2 items in each catego
         }
 
         return NextResponse.json(parsed);
-    } catch (error: any) {
+    } catch (err: unknown) {
+        const error = err as Error & { status?: number };
         console.error("[Doc Analysis Error]:", error?.message || error);
 
         if (error?.status === 429 || error?.message?.includes("429")) {

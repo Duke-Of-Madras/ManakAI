@@ -146,7 +146,7 @@ export function Sidebar() {
                         className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all hover:bg-white/[0.05] group"
                     >
                         <Globe className="w-[18px] h-[18px] text-[#D4AF37]" />
-                        <span className="text-white/50 text-[13px] font-semibold group-hover:text-white/80 transition-colors truncate">
+                        <span className="text-white/80 text-[13px] font-semibold group-hover:text-white transition-colors truncate">
                             {languageName}
                         </span>
                         <ChevronDown className={cn(
@@ -172,12 +172,12 @@ export function Sidebar() {
                                     className={cn(
                                         "w-full text-left px-4 py-2 text-[12px] hover:bg-white/[0.05] transition-all flex items-center justify-between",
                                         language === lang.code
-                                            ? "text-[#D4AF37] bg-[#D4AF37]/[0.08]"
-                                            : "text-white/60"
+                                            ? "text-[#D4AF37] font-bold bg-[#D4AF37]/[0.08]"
+                                            : "text-white/90"
                                     )}
                                 >
                                     <span>{lang.nativeName}</span>
-                                    <span className="text-[10px] text-white/25">{lang.name}</span>
+                                    <span className="text-[10px] text-white/50">{lang.name}</span>
                                 </button>
                             ))}
                         </motion.div>

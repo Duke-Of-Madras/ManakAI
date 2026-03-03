@@ -14,6 +14,9 @@ import {
     Zap,
     Shield,
     Loader2,
+    Building2,
+    MapPin,
+    History,
 } from "lucide-react";
 
 interface VisionTag {
@@ -35,6 +38,17 @@ interface VisionResult {
     summary: string;
     tags: VisionTag[];
     gaps: VisionGap[];
+    scanId?: string;
+    buildingName?: string;
+    placeName?: string;
+}
+
+interface ScanHistoryItem {
+    id: string;
+    buildingName: string;
+    placeName: string;
+    score: number;
+    timestamp: string;
 }
 
 export default function VisionAuditPage() {
@@ -42,6 +56,9 @@ export default function VisionAuditPage() {
     const [isScanning, setIsScanning] = useState(false);
     const [scanResult, setScanResult] = useState<VisionResult | null>(null);
     const [scanError, setScanError] = useState<string | null>(null);
+    const [buildingName, setBuildingName] = useState("");
+    const [placeName, setPlaceName] = useState("");
+    const [scanHistory, setScanHistory] = useState<ScanHistoryItem[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFile = async (file: File) => {
@@ -62,12 +79,21 @@ export default function VisionAuditPage() {
             const res = await fetch("/api/vision-audit", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ image: base64 }),
+                body: JSON.stringify({ image: base64, buildingName: buildingName || "Unknown Building", placeName: placeName || "Unknown Facility" }),
             });
 
             const data = await res.json();
             if (data.error) throw new Error(data.error);
             setScanResult(data);
+
+            // Add to batch scan history
+            setScanHistory(prev => [{
+                id: data.scanId || `local-${Date.now()}`,
+                buildingName: buildingName || "Unknown Building",
+                placeName: placeName || "Unknown Facility",
+                score: data.overallScore || 0,
+                timestamp: new Date().toLocaleTimeString("en-IN", { hour12: false }),
+            }, ...prev]);
         } catch (err) {
             setScanError(err instanceof Error ? err.message : "Analysis failed");
         } finally {
@@ -103,14 +129,46 @@ export default function VisionAuditPage() {
     return (
         <div className="p-6 space-y-6 min-h-screen">
             {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-                    <ScanEye className="w-6 h-6 text-[#D4AF37]" />
-                    <T>Vision-Audit Scanner</T>
-                </h1>
-                <p className="text-white/40 text-sm mt-0.5">
-                    <T>Multimodal infrastructure compliance analysis powered by Gemini Vision AI</T>
-                </p>
+            <div className="flex items-start justify-between flex-wrap gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+                        <ScanEye className="w-6 h-6 text-[#D4AF37]" />
+                        <T>Vision-Audit Scanner</T>
+                    </h1>
+                    <p className="text-white/40 text-sm mt-0.5">
+                        <T>Multimodal infrastructure compliance analysis powered by Gemini Vision AI</T>
+                    </p>
+                </div>
+            </div>
+
+            {/* Location Input Fields */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-white/[0.03] backdrop-blur-md border border-white/[0.06] rounded-xl p-4 flex items-center gap-3">
+                    <Building2 className="w-5 h-5 text-[#D4AF37] shrink-0" />
+                    <div className="flex-1">
+                        <label className="text-[10px] text-white/40 uppercase font-bold tracking-wider">Building Name</label>
+                        <input
+                            type="text"
+                            value={buildingName}
+                            onChange={(e) => setBuildingName(e.target.value)}
+                            placeholder="e.g. Academic Block A"
+                            className="w-full bg-transparent border-none outline-none text-white text-sm mt-0.5 placeholder-white/20"
+                        />
+                    </div>
+                </div>
+                <div className="bg-white/[0.03] backdrop-blur-md border border-white/[0.06] rounded-xl p-4 flex items-center gap-3">
+                    <MapPin className="w-5 h-5 text-[#D4AF37] shrink-0" />
+                    <div className="flex-1">
+                        <label className="text-[10px] text-white/40 uppercase font-bold tracking-wider">Facility / Room</label>
+                        <input
+                            type="text"
+                            value={placeName}
+                            onChange={(e) => setPlaceName(e.target.value)}
+                            placeholder="e.g. Chemistry Lab"
+                            className="w-full bg-transparent border-none outline-none text-white text-sm mt-0.5 placeholder-white/20"
+                        />
+                    </div>
+                </div>
             </div>
 
             {/* Split View */}
@@ -173,6 +231,19 @@ export default function VisionAuditPage() {
                                         className="px-3 py-1.5 bg-[#D4AF37]/90 text-[#001229] text-xs font-bold rounded-lg hover:bg-[#D4AF37] transition"
                                     >
                                         <T>Re-Scan</T>
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setPreviewUrl(null);
+                                            setScanResult(null);
+                                            setScanError(null);
+                                            if (fileInputRef.current) fileInputRef.current.value = "";
+                                            setTimeout(() => fileInputRef.current?.click(), 100);
+                                        }}
+                                        className="px-3 py-1.5 bg-white/10 backdrop-blur text-white text-xs font-bold rounded-lg hover:bg-white/20 transition border border-white/10"
+                                    >
+                                        <T>New Scan</T>
                                     </button>
                                 </div>
 
@@ -317,6 +388,45 @@ export default function VisionAuditPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Batch Scan History */}
+            {scanHistory.length > 0 && (
+                <div className="bg-white/[0.03] backdrop-blur-md border border-white/[0.06] rounded-2xl p-5">
+                    <div className="flex items-center gap-2 mb-4">
+                        <History className="w-5 h-5 text-[#D4AF37]" />
+                        <h3 className="font-bold text-sm"><T>Scan History</T></h3>
+                        <span className="text-[10px] text-white/30 ml-auto">{scanHistory.length} scan(s) this session</span>
+                    </div>
+                    <div className="space-y-2">
+                        {scanHistory.map((item, i) => (
+                            <motion.div
+                                key={item.id}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: i * 0.05 }}
+                                className="flex items-center justify-between p-3 bg-white/[0.02] rounded-xl border border-white/[0.04] hover:bg-white/[0.04] transition"
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${item.score >= 80 ? "bg-emerald-500/15 text-emerald-400" : item.score >= 60 ? "bg-amber-500/15 text-amber-400" : "bg-red-500/15 text-red-400"}`}>
+                                        <Building2 className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                        <span className="text-sm font-semibold text-white/80">{item.buildingName}</span>
+                                        <span className="text-white/30 mx-2">→</span>
+                                        <span className="text-sm text-white/60">{item.placeName}</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <span className="text-[10px] text-white/30 font-mono">{item.timestamp}</span>
+                                    <span className={`text-sm font-bold ${item.score >= 80 ? "text-emerald-400" : item.score >= 60 ? "text-amber-400" : "text-red-400"}`}>
+                                        {item.score}%
+                                    </span>
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -1,19 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { visionModel } from "@/lib/gemini";
+import { saveScan, ScanResult } from "@/lib/scan-store";
 
 export async function POST(req: NextRequest) {
     try {
-        const { image } = await req.json();
+        const { image, buildingName, placeName } = await req.json();
 
         if (!image || typeof image !== "string") {
             return NextResponse.json({ error: "Base64 image is required" }, { status: 400 });
         }
+
+        const building = buildingName || "Unknown Building";
+        const place = placeName || "Unknown Facility";
 
         // Extract base64 data (remove data URI prefix if present)
         const base64Data = image.includes(",") ? image.split(",")[1] : image;
         const mimeType = image.startsWith("data:image/png") ? "image/png" : "image/jpeg";
 
         const prompt = `You are ManakAI's Vision-Audit engine. Analyze this infrastructure image for BIS compliance in an Indian educational institution context.
+
+The user indicates this area is: Building "${building}", Facility/Room "${place}".
 
 Evaluate against these standards:
 - IS 15700:2018 (safety signage, fire exits, accessibility, emergency maps)
@@ -24,7 +30,7 @@ Evaluate against these standards:
 You MUST respond with ONLY valid JSON in this exact format (no markdown, no code blocks, just raw JSON):
 {
   "overallScore": <number 0-100>,
-  "summary": "<one sentence overall assessment>",
+  "summary": "<one sentence overall assessment mentioning the facility name>",
   "tags": [
     { "label": "<short tag name>", "status": "pass" | "fail" | "warning", "clause": "<standard clause reference>" }
   ],
@@ -64,8 +70,23 @@ Be specific. If you can identify structural, safety, electrical, or accessibilit
             );
         }
 
-        return NextResponse.json(parsed);
-    } catch (error: any) {
+        // Save scan result to persistent store
+        const scanEntry: ScanResult = {
+            id: `scan-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            buildingName: building,
+            placeName: place,
+            overallScore: parsed.overallScore || 0,
+            summary: parsed.summary || "",
+            tags: parsed.tags || [],
+            gaps: parsed.gaps || [],
+            timestamp: new Date().toISOString(),
+        };
+
+        saveScan(scanEntry);
+
+        return NextResponse.json({ ...parsed, scanId: scanEntry.id, buildingName: building, placeName: place });
+    } catch (err: unknown) {
+        const error = err as Error & { status?: number };
         console.error("[Vision API Error]:", error?.message || error);
 
         if (error?.status === 429 || error?.message?.includes("429")) {

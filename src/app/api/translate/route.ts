@@ -26,7 +26,8 @@ ${text}`;
         const translated = result.response.text().trim();
 
         return NextResponse.json({ translated });
-    } catch (error: any) {
+    } catch (err: unknown) {
+        const error = err as Error & { status?: number };
         console.error("[Translate API Error]:", error?.message || error);
 
         // Handle Gemini 429 quota specifically
