@@ -2,16 +2,21 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
+import { T } from "@/components/TranslatedText";
 import {
     FileText,
     Upload,
     AlertTriangle,
     CheckCircle2,
+    ArrowUpRight,
+    Search,
+    Target,
+    Loader2,
+    UploadCloud,
     TrendingUp,
     BookOpen,
     Zap,
     Brain,
-    Target,
 } from "lucide-react";
 
 interface AnalysisItem {
@@ -22,36 +27,69 @@ interface AnalysisItem {
     clause: string;
 }
 
-const MOCK_ANALYSIS: AnalysisItem[] = [
-    { id: "a1", type: "gap", title: "Missing AI Ethics Module", detail: "Curriculum does not cover responsible AI deployment as mandated by India AI Sutra 2026 (Sutra 5.3).", clause: "India AI Sutra 2026 §5.3" },
-    { id: "a2", type: "gap", title: "Insufficient Data Governance Training", detail: "No dedicated coursework on data sovereignty and governance frameworks.", clause: "ISO 42001 Clause 8.4" },
-    { id: "a3", type: "compliance", title: "Software Engineering Practices", detail: "Meets BIS quality standards for software development methodology education.", clause: "IS 15700 Clause 10.3" },
-    { id: "a4", type: "compliance", title: "Mathematics Foundation", detail: "Strong alignment with prerequisite standards for AI/ML coursework.", clause: "IS 15700 Clause 4.2" },
-    { id: "a5", type: "upgrade", title: "Add NPU/Edge Computing Lab", detail: "Recommend adding dedicated Neural Processing Unit (NPU) coursework to align with India's AI hardware strategy.", clause: "India AI Sutra 2026 §3.1" },
-    { id: "a6", type: "upgrade", title: "Indigenous Language NLP Module", detail: "Add a dedicated module on multilingual NLP to comply with Indian language support mandates.", clause: "India AI Sutra 2026 §4.2" },
-];
+interface AnalysisResult {
+    summary: string;
+    complianceScore: number;
+    gaps: AnalysisItem[];
+    compliant: AnalysisItem[];
+    upgrades: AnalysisItem[];
+}
 
 export default function DocumentAnalysisPage() {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [analysisReady, setAnalysisReady] = useState(false);
+    const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+    const [analysisError, setAnalysisError] = useState<string | null>(null);
     const [fileName, setFileName] = useState("");
+    const [fileContent, setFileContent] = useState("");
 
-    const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file) {
-            setFileName(file.name);
-            setIsAnalyzing(true);
-            setAnalysisReady(false);
-            setTimeout(() => {
-                setIsAnalyzing(false);
-                setAnalysisReady(true);
-            }, 3000);
+        if (!file) return;
+
+        setFileName(file.name);
+        setIsAnalyzing(true);
+        setAnalysisResult(null);
+        setAnalysisError(null);
+
+        try {
+            const isPdf = file.name.toLowerCase().endsWith(".pdf");
+            let body: Record<string, string>;
+
+            if (isPdf) {
+                // Read PDF as base64, send to server for text extraction
+                const base64 = await new Promise<string>((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const result = reader.result as string;
+                        // Strip the data URI prefix to get pure base64
+                        resolve(result.includes(",") ? result.split(",")[1] : result);
+                    };
+                    reader.readAsDataURL(file);
+                });
+                setFileContent("[PDF file — text is extracted server-side by pdf-parse]");
+                body = { fileData: base64, fileName: file.name };
+            } else {
+                // Read text files directly
+                const text = await file.text();
+                setFileContent(text);
+                body = { text, fileName: file.name };
+            }
+
+            const res = await fetch("/api/analyze-document", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+            });
+
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            setAnalysisResult(data);
+        } catch (err) {
+            setAnalysisError(err instanceof Error ? err.message : "Analysis failed");
+        } finally {
+            setIsAnalyzing(false);
         }
     };
-
-    const gaps = MOCK_ANALYSIS.filter((a) => a.type === "gap");
-    const compliant = MOCK_ANALYSIS.filter((a) => a.type === "compliance");
-    const upgrades = MOCK_ANALYSIS.filter((a) => a.type === "upgrade");
 
     return (
         <div className="p-6 space-y-6 min-h-screen">
@@ -60,16 +98,16 @@ export default function DocumentAnalysisPage() {
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
                         <FileText className="w-6 h-6 text-[#D4AF37]" />
-                        Document Analysis Lab
+                        <T>Document Analysis Lab</T>
                     </h1>
                     <p className="text-white/40 text-sm mt-0.5">
-                        AI-powered curriculum and policy compliance auditor
+                        <T>AI-powered curriculum and policy compliance auditor — Powered by Gemini</T>
                     </p>
                 </div>
                 <label className="px-5 py-2.5 bg-[#D4AF37] text-[#001229] text-sm font-bold rounded-full hover:bg-[#e8c84a] transition cursor-pointer shadow-lg shadow-[#D4AF37]/20 flex items-center gap-2">
                     <Upload className="w-4 h-4" />
-                    Upload Document
-                    <input type="file" accept=".pdf,.doc,.docx,.txt" className="hidden" onChange={handleUpload} />
+                    <T>Upload Document</T>
+                    <input type="file" accept=".pdf,.doc,.docx,.txt,.csv,.md" className="hidden" onChange={handleUpload} />
                 </label>
             </div>
 
@@ -80,51 +118,37 @@ export default function DocumentAnalysisPage() {
                     <div className="bg-white/[0.03] backdrop-blur-md border border-white/[0.06] rounded-2xl h-full flex flex-col overflow-hidden">
                         <div className="p-4 border-b border-white/[0.06] flex items-center gap-2">
                             <BookOpen className="w-4 h-4 text-[#D4AF37]" />
-                            <span className="text-sm font-bold">Document Preview</span>
+                            <span className="text-sm font-bold"><T>Document Preview</T></span>
                             {fileName && <span className="text-[10px] text-white/30 ml-auto font-mono truncate max-w-[200px]">{fileName}</span>}
                         </div>
-                        <div className="flex-1 p-6 flex items-center justify-center">
+                        <div className="flex-1 p-6 overflow-y-auto custom-scrollbar">
                             {!fileName ? (
-                                <div className="text-center">
-                                    <FileText className="w-16 h-16 text-white/[0.06] mx-auto mb-4" />
-                                    <p className="text-white/30 text-sm">Upload a PDF syllabus or policy document</p>
-                                    <p className="text-white/15 text-xs mt-1">Supports PDF, DOC, DOCX, TXT</p>
+                                <div className="flex flex-col items-center justify-center h-full text-center">
+                                    <div className="p-4 border-b border-white/[0.06]">
+                                        <h2 className="text-sm font-bold"><T>Upload Document</T></h2>
+                                    </div>
+                                    <div className="p-8 flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-xl mb-6 bg-white/[0.02]">
+                                        <UploadCloud className="w-10 h-10 text-[#D4AF37]/50 mb-3" />
+                                        <div className="text-sm font-medium text-white/80"><T>Upload a PDF, DOC, TXT, or MD file</T></div>
+                                        <div className="text-xs text-white/40 mt-1"><T>Text will be extracted and analyzed by Gemini</T></div>
+                                    </div>
                                 </div>
                             ) : (
-                                <div className="w-full h-full bg-white/[0.02] rounded-xl border border-white/[0.06] p-6 space-y-4 overflow-y-auto custom-scrollbar">
+                                <div className="w-full h-full bg-white/[0.02] rounded-xl border border-white/[0.06] p-6 overflow-y-auto custom-scrollbar">
                                     <div className="flex items-center gap-2 mb-4">
                                         <div className="w-2 h-2 rounded-full bg-[#D4AF37]" />
                                         <span className="text-xs font-semibold text-white/50">{fileName}</span>
                                     </div>
-                                    {/* Simulated document content */}
-                                    {[
-                                        "B.Tech Computer Science & Engineering",
-                                        "Semester V – Course Structure 2025-26",
-                                        "",
-                                        "CS301 – Data Structures & Algorithms",
-                                        "CS302 – Operating Systems",
-                                        "CS303 – Database Management Systems",
-                                        "CS304 – Software Engineering",
-                                        "CS305 – Computer Networks",
-                                        "HS301 – Professional Ethics",
-                                        "",
-                                        "Program Outcomes (POs):",
-                                        "PO1: Apply engineering fundamentals",
-                                        "PO2: Analyze complex problems",
-                                        "PO3: Design innovative solutions",
-                                        "",
-                                        "Assessment: Continuous Internal (40%)",
-                                        "          End Semester Exam (60%)",
-                                    ].map((line, i) => (
-                                        <div key={i} className={`text-[12px] font-mono leading-relaxed ${line === "" ? "h-3" :
-                                                i < 2 ? "text-white/70 font-bold" :
-                                                    line.startsWith("PO") ? "text-emerald-400/70" :
-                                                        line.startsWith("CS") || line.startsWith("HS") ? "text-white/50" :
-                                                            "text-white/30"
-                                            }`}>
-                                            {line}
-                                        </div>
-                                    ))}
+                                    {fileContent ? (
+                                        <pre className="text-[11px] font-mono text-white/50 whitespace-pre-wrap leading-relaxed">
+                                            {fileContent.slice(0, 5000)}
+                                            {fileContent.length > 5000 && (
+                                                <span className="text-white/20 block mt-2">... [{fileContent.length - 5000} more characters]</span>
+                                            )}
+                                        </pre>
+                                    ) : (
+                                        <p className="text-xs text-white/30"><T>Unable to preview binary file</T></p>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -136,9 +160,11 @@ export default function DocumentAnalysisPage() {
                     <div className="bg-white/[0.03] backdrop-blur-md border border-white/[0.06] rounded-2xl h-full flex flex-col overflow-hidden">
                         <div className="p-4 border-b border-white/[0.06] flex items-center gap-2">
                             <Brain className="w-4 h-4 text-[#D4AF37]" />
-                            <span className="text-sm font-bold">AI Auditor Analysis</span>
-                            {analysisReady && (
-                                <span className="ml-auto text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-bold">COMPLETE</span>
+                            <span className="text-sm font-bold"><T>AI Auditor Analysis</T></span>
+                            {analysisResult && (
+                                <span className="ml-auto text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-bold">
+                                    SCORE: {analysisResult.complianceScore}%
+                                </span>
                             )}
                         </div>
 
@@ -149,30 +175,51 @@ export default function DocumentAnalysisPage() {
                                     animate={{ rotate: 360 }}
                                     transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                                 />
-                                <p className="text-sm text-white/40 font-mono">Analyzing document structure...</p>
+                                <p className="text-sm text-white/40 font-mono"><T>Gemini is analyzing your document...</T></p>
+                                <p className="text-xs text-white/20"><T>Checking against IS 15700, ISO 42001, India AI Sutra 2026</T></p>
                             </div>
-                        ) : !analysisReady ? (
+                        ) : analysisError ? (
+                            <div className="flex-1 flex items-center justify-center">
+                                <div className="text-center">
+                                    <AlertTriangle className="w-12 h-12 text-red-400/40 mx-auto mb-3" />
+                                    <p className="text-red-400/70 text-sm">{analysisError}</p>
+                                </div>
+                            </div>
+                        ) : !analysisResult ? (
                             <div className="flex-1 flex items-center justify-center">
                                 <div className="text-center">
                                     <Target className="w-16 h-16 text-white/[0.06] mx-auto mb-4" />
-                                    <p className="text-white/30 text-sm">Upload a document to begin analysis</p>
+                                    <p className="text-white/30 text-sm"><T>Upload a document to begin AI analysis</T></p>
                                 </div>
                             </div>
                         ) : (
                             <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
+                                {/* Summary */}
+                                {analysisResult.summary && (
+                                    <div className="p-3 bg-white/[0.03] border border-white/[0.06] rounded-xl text-[11px] text-white/50 leading-relaxed">
+                                        {analysisResult.summary}
+                                    </div>
+                                )}
+
                                 {/* Summary Cards */}
                                 <div className="grid grid-cols-3 gap-3">
-                                    <SummaryCard icon={AlertTriangle} label="Skill Gaps" count={gaps.length} color="text-red-400" bg="bg-red-500/10 border-red-500/20" />
-                                    <SummaryCard icon={CheckCircle2} label="Compliant" count={compliant.length} color="text-emerald-400" bg="bg-emerald-500/10 border-emerald-500/20" />
-                                    <SummaryCard icon={TrendingUp} label="Upgrades" count={upgrades.length} color="text-[#D4AF37]" bg="bg-[#D4AF37]/10 border-[#D4AF37]/20" />
+                                    <SummaryCard icon={AlertTriangle} label="Skill Gaps" count={analysisResult.gaps.length} color="text-red-400" bg="bg-red-500/10 border-red-500/20" />
+                                    <SummaryCard icon={CheckCircle2} label="Compliant" count={analysisResult.compliant.length} color="text-emerald-400" bg="bg-emerald-500/10 border-emerald-500/20" />
+                                    <SummaryCard icon={TrendingUp} label="Upgrades" count={analysisResult.upgrades.length} color="text-[#D4AF37]" bg="bg-[#D4AF37]/10 border-[#D4AF37]/20" />
                                 </div>
 
                                 {/* Gaps */}
-                                <Section title="Skill Gaps & Non-Compliance" items={gaps} icon={AlertTriangle} colorClass="text-red-400 bg-red-500/[0.08] border-red-500/20" />
+                                {analysisResult.gaps.length > 0 && (
+                                    <Section title="Skill Gaps & Non-Compliance" items={analysisResult.gaps} icon={AlertTriangle} colorClass="text-red-400 bg-red-500/[0.08] border-red-500/20" />
+                                )}
                                 {/* Compliant */}
-                                <Section title="Quality Compliance" items={compliant} icon={CheckCircle2} colorClass="text-emerald-400 bg-emerald-500/[0.08] border-emerald-500/20" />
+                                {analysisResult.compliant.length > 0 && (
+                                    <Section title="Quality Compliance" items={analysisResult.compliant} icon={CheckCircle2} colorClass="text-emerald-400 bg-emerald-500/[0.08] border-emerald-500/20" />
+                                )}
                                 {/* Upgrades */}
-                                <Section title="Probable Upgrades" items={upgrades} icon={Zap} colorClass="text-[#D4AF37] bg-[#D4AF37]/[0.08] border-[#D4AF37]/20" />
+                                {analysisResult.upgrades.length > 0 && (
+                                    <Section title="Probable Upgrades" items={analysisResult.upgrades} icon={Zap} colorClass="text-[#D4AF37] bg-[#D4AF37]/[0.08] border-[#D4AF37]/20" />
+                                )}
                             </div>
                         )}
                     </div>
@@ -204,7 +251,7 @@ function Section({ title, items, icon: Icon, colorClass }: { title: string; item
             <div className="space-y-2">
                 {items.map((item, i) => (
                     <motion.div
-                        key={item.id}
+                        key={item.id || i}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.1 }}

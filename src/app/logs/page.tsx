@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useManakAI } from "@/hooks/useManakAI";
+import { generateBISReport } from "@/lib/reportGenerator";
 import {
     History,
     Download,
@@ -27,11 +28,40 @@ export default function AuditLogsPage() {
     const handleGenerateReport = () => {
         setIsGenerating(true);
         setReportReady(false);
+
+        // Small delay for UX (let progress bar animate), then generate real PDF
         setTimeout(() => {
+            try {
+                generateBISReport({
+                    institutionalScore: data.institutionalScore,
+                    infraScore: data.infraScore,
+                    academicScore: data.academicScore,
+                    governanceScore: data.governanceScore,
+                    buildings: data.buildings.map((b) => ({
+                        name: b.name,
+                        score: b.score,
+                        status: b.status,
+                    })),
+                    auditLogs: data.auditLogs.map((l) => ({
+                        title: l.action,
+                        description: l.result,
+                        timestamp: l.timestamp,
+                        module: l.module,
+                        actor: l.user,
+                        score: l.score,
+                    })),
+                    generatedAt: new Date().toLocaleString("en-IN", {
+                        dateStyle: "full",
+                        timeStyle: "short",
+                    }),
+                });
+                setReportReady(true);
+                setTimeout(() => setReportReady(false), 8000);
+            } catch (err) {
+                console.error("PDF generation failed:", err);
+            }
             setIsGenerating(false);
-            setReportReady(true);
-            setTimeout(() => setReportReady(false), 5000);
-        }, 3500);
+        }, 2000);
     };
 
     const getModuleIcon = (module: string) => {
@@ -66,10 +96,10 @@ export default function AuditLogsPage() {
                     onClick={handleGenerateReport}
                     disabled={isGenerating}
                     className={`relative overflow-hidden px-7 py-3 rounded-xl font-bold text-sm tracking-wide transition-all shadow-lg flex items-center gap-2 ${isGenerating
-                            ? "bg-white/10 text-white/60 cursor-wait"
-                            : reportReady
-                                ? "bg-emerald-600 text-white"
-                                : "bg-gradient-to-r from-[#D4AF37] to-[#B8941F] text-[#001229] hover:shadow-[#D4AF37]/30 hover:shadow-xl"
+                        ? "bg-white/10 text-white/60 cursor-wait"
+                        : reportReady
+                            ? "bg-emerald-600 text-white"
+                            : "bg-gradient-to-r from-[#D4AF37] to-[#B8941F] text-[#001229] hover:shadow-[#D4AF37]/30 hover:shadow-xl"
                         }`}
                     whileHover={!isGenerating ? { scale: 1.02 } : {}}
                     whileTap={!isGenerating ? { scale: 0.98 } : {}}
@@ -161,8 +191,8 @@ export default function AuditLogsPage() {
                         key={f}
                         onClick={() => setFilter(f)}
                         className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${filter === f
-                                ? "bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/30"
-                                : "bg-white/[0.03] text-white/40 border border-white/[0.06] hover:text-white/60"
+                            ? "bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/30"
+                            : "bg-white/[0.03] text-white/40 border border-white/[0.06] hover:text-white/60"
                             }`}
                     >
                         {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -188,8 +218,8 @@ export default function AuditLogsPage() {
                             {/* Timeline dot */}
                             <div className="flex flex-col items-center pt-1">
                                 <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${log.result.toLowerCase().includes("critical") ? "bg-red-500/15 text-red-400" :
-                                        hasScore && !isGood ? "bg-amber-500/15 text-amber-400" :
-                                            "bg-[#D4AF37]/10 text-[#D4AF37]"
+                                    hasScore && !isGood ? "bg-amber-500/15 text-amber-400" :
+                                        "bg-[#D4AF37]/10 text-[#D4AF37]"
                                     }`}>
                                     <Icon className="w-4 h-4" />
                                 </div>

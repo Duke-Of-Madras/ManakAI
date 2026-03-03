@@ -36,6 +36,7 @@
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
   }
+
   .dark {
     --background: 210 100% 8%;
     --foreground: 0 0% 98%;
@@ -68,19 +69,270 @@
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.08);
   border-radius: 3px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.15);
 }
 
 /* Shimmer animation for the report button */
 @keyframes shimmer {
-  0% { transform: translateX(-100%) skewX(-12deg); }
-  100% { transform: translateX(200%) skewX(-12deg); }
+  0% {
+    transform: translateX(-100%) skewX(-12deg);
+  }
+
+  100% {
+    transform: translateX(200%) skewX(-12deg);
+  }
+}
+
+/* Gradient glow border animation */
+@keyframes glow-rotate {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.glow-border {
+  position: relative;
+  overflow: hidden;
+}
+
+.glow-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.3), transparent, rgba(16, 185, 129, 0.2), transparent);
+  background-size: 300% 100%;
+  animation: glow-rotate 6s linear infinite;
+  z-index: -1;
+}
+
+/* Gold gradient text */
+.text-gradient-gold {
+  background: linear-gradient(135deg, #D4AF37 0%, #F5E6A3 50%, #D4AF37 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Pulse ring animation for status indicators */
+@keyframes pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+
+  50% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+.pulse-ring::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border: 2px solid currentColor;
+  border-radius: inherit;
+  animation: pulse-ring 2s ease-out infinite;
+}
+
+/* Skeleton loading shimmer */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.03) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+/* Card hover glow effect */
+.card-hover-glow {
+  transition: all 0.3s ease;
+}
+
+.card-hover-glow:hover {
+  box-shadow: 0 0 20px rgba(212, 175, 55, 0.08), 0 8px 32px rgba(0, 0, 0, 0.3);
+  border-color: rgba(212, 175, 55, 0.15);
+  transform: translateY(-2px);
+}
+
+/* ===== LIGHT THEME OVERRIDES ===== */
+.light {
+  --background: 210 30% 98%;
+  --foreground: 210 50% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 210 50% 10%;
+  --primary: 43 72% 40%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 20% 93%;
+  --secondary-foreground: 210 50% 15%;
+  --muted: 210 15% 92%;
+  --muted-foreground: 210 10% 45%;
+  --border: 210 15% 88%;
+  --input: 210 15% 88%;
+  --ring: 43 72% 40%;
+}
+
+/* Light theme body */
+html.light body {
+  background: #f0f4f8 !important;
+  color: #1a2a3a !important;
+}
+
+/* Light mode sidebar */
+html.light .sidebar-container {
+  background: linear-gradient(180deg, #ffffff 0%, #f0f4f8 100%) !important;
+  border-right: 1px solid #d0d8e0 !important;
+  color: #1a2a3a !important;
+}
+
+html.light .sidebar-container a,
+html.light .sidebar-container span {
+  color: #2a3a4a !important;
+}
+
+html.light .sidebar-container .active-nav {
+  background: rgba(212, 175, 55, 0.12) !important;
+  color: #8B6914 !important;
+}
+
+/* Light mode main content */
+html.light main {
+  background: rgba(240, 244, 248, 0.95) !important;
+}
+
+/* Light mode cards and panels */
+html.light .bg-white\/\[0\.03\],
+html.light .bg-white\/\[0\.02\] {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-color: rgba(0, 33, 71, 0.08) !important;
+}
+
+html.light .border-white\/\[0\.06\] {
+  border-color: rgba(0, 33, 71, 0.1) !important;
+}
+
+/* Light text colors */
+html.light .text-white\/90 {
+  color: rgba(20, 30, 50, 0.95) !important;
+}
+
+html.light .text-white\/80 {
+  color: rgba(20, 30, 50, 0.85) !important;
+}
+
+html.light .text-white\/70 {
+  color: rgba(20, 30, 50, 0.75) !important;
+}
+
+html.light .text-white\/60 {
+  color: rgba(20, 30, 50, 0.65) !important;
+}
+
+html.light .text-white\/50 {
+  color: rgba(20, 30, 50, 0.55) !important;
+}
+
+html.light .text-white\/40 {
+  color: rgba(20, 30, 50, 0.5) !important;
+}
+
+html.light .text-white\/30 {
+  color: rgba(20, 30, 50, 0.4) !important;
+}
+
+html.light .text-white\/25 {
+  color: rgba(20, 30, 50, 0.35) !important;
+}
+
+html.light .text-white\/20 {
+  color: rgba(20, 30, 50, 0.3) !important;
+}
+
+html.light .text-white\/15 {
+  color: rgba(20, 30, 50, 0.2) !important;
+}
+
+html.light .text-white {
+  color: #1a2a3a !important;
+}
+
+/* Light mode bg overrides */
+html.light .bg-white\/\[0\.05\] {
+  background: rgba(0, 33, 71, 0.05) !important;
+}
+
+html.light .bg-white\/\[0\.04\] {
+  background: rgba(0, 33, 71, 0.04) !important;
+}
+
+html.light .bg-white\/\[0\.03\] {
+  background: rgba(255, 255, 255, 0.9) !important;
+}
+
+html.light .bg-white\/\[0\.02\] {
+  background: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* Light scrollbar */
+html.light .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+html.light .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* Light skeleton */
+html.light .skeleton {
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.04) 25%, rgba(0, 0, 0, 0.08) 50%, rgba(0, 0, 0, 0.04) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+}
+
+/* Light card hover */
+html.light .card-hover-glow:hover {
+  box-shadow: 0 0 20px rgba(212, 175, 55, 0.12), 0 8px 32px rgba(0, 0, 0, 0.08);
+  border-color: rgba(212, 175, 55, 0.3);
+}
+
+/* Gold gradient text stays same in light mode but slightly darker */
+html.light .text-gradient-gold {
+  background: linear-gradient(135deg, #8B6914 0%, #B8941F 50%, #8B6914 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }

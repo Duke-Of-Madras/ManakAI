@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { T } from "@/components/TranslatedText";
 import { useManakAI } from "@/hooks/useManakAI";
 import {
     Library,
@@ -13,29 +14,28 @@ import {
     X,
     Calendar,
     Tag,
+    Loader2,
+    BookOpen,
+    MessageSquare
 } from "lucide-react";
 
 interface ChatMessage {
     id: string;
     role: "user" | "assistant";
     content: string;
+    sources?: { standardCode: string; section: string }[];
 }
-
-const CHAT_RESPONSES: Record<string, string> = {
-    "is 15700": "IS 15700:2018 establishes quality management requirements for educational organizations. Key clauses include safety infrastructure (5.2), emergency procedures (7.4), accessibility (9.1), and periodic audits (10.3).",
-    "ai sutra": "India AI Sutra 2026 is India's comprehensive framework for responsible AI in public institutions. It mandates AI Impact Assessments (3.1), indigenous language support (4.2), bias detection (5.3), data sovereignty (6.1), and grievance redressal (7.4).",
-    "iso 42001": "ISO 42001:2023 is the international standard for AI Management Systems. It requires risk assessment frameworks (6.1), transparency (7.2), data governance (8.4), and continuous monitoring (10.1).",
-    default: "I can help you understand BIS standards and compliance requirements. Try asking about specific standards like IS 15700, ISO 42001, or India AI Sutra 2026.",
-};
 
 export default function WikiPage() {
     const data = useManakAI();
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedStandard, setSelectedStandard] = useState<string | null>(null);
     const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-        { id: "init", role: "assistant", content: "Welcome to the BIS Knowledge Base. Ask me about any Indian Standard or compliance framework." },
+        { id: "init", role: "assistant", content: "Welcome to the BIS Knowledge Base. I'm powered by Gemini AI with RAG retrieval over BIS standards. Ask me anything!" },
     ]);
     const [chatInput, setChatInput] = useState("");
+    const [isChatLoading, setIsChatLoading] = useState(false);
+    const chatEndRef = useRef<HTMLDivElement>(null);
 
     const filteredStandards = data.bisStandards.filter(
         (s) =>
@@ -46,26 +46,40 @@ export default function WikiPage() {
 
     const selectedData = data.bisStandards.find((s) => s.id === selectedStandard);
 
-    const handleSendChat = () => {
-        if (!chatInput.trim()) return;
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [chatMessages]);
+
+    const handleSendChat = async () => {
+        if (!chatInput.trim() || isChatLoading) return;
         const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: "user", content: chatInput };
         setChatMessages((prev) => [...prev, userMsg]);
-
-        const lowerInput = chatInput.toLowerCase();
-        let response = CHAT_RESPONSES.default;
-        for (const [key, val] of Object.entries(CHAT_RESPONSES)) {
-            if (key !== "default" && lowerInput.includes(key)) {
-                response = val;
-                break;
-            }
-        }
-
-        setTimeout(() => {
-            const botMsg: ChatMessage = { id: `b-${Date.now()}`, role: "assistant", content: response };
-            setChatMessages((prev) => [...prev, botMsg]);
-        }, 800);
-
         setChatInput("");
+        setIsChatLoading(true);
+
+        try {
+            const res = await fetch("/api/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: chatInput }),
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            const botMsg: ChatMessage = {
+                id: `b-${Date.now()}`,
+                role: "assistant",
+                content: data.response,
+                sources: data.sources,
+            };
+            setChatMessages((prev) => [...prev, botMsg]);
+        } catch {
+            setChatMessages((prev) => [
+                ...prev,
+                { id: `e-${Date.now()}`, role: "assistant", content: "Sorry, I encountered an error. Please try again." },
+            ]);
+        } finally {
+            setIsChatLoading(false);
+        }
     };
 
     return (
@@ -73,11 +87,11 @@ export default function WikiPage() {
             {/* Header */}
             <div className="mb-6">
                 <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-                    <Library className="w-6 h-6 text-[#D4AF37]" />
-                    Standards Wiki
+                    <BookOpen className="w-6 h-6 text-[#D4AF37]" />
+                    <T>Standards Wiki</T>
                 </h1>
                 <p className="text-white/40 text-sm mt-0.5">
-                    RAG-powered BIS knowledge base for institutional compliance
+                    <T>RAG-powered BIS knowledge base for institutional compliance</T>
                 </p>
             </div>
 
@@ -104,21 +118,20 @@ export default function WikiPage() {
                             transition={{ delay: i * 0.05 }}
                             onClick={() => setSelectedStandard(std.id)}
                             className={`p-5 rounded-xl border cursor-pointer transition-all hover:scale-[1.01] ${selectedStandard === std.id
-                                    ? "bg-[#D4AF37]/10 border-[#D4AF37]/30"
-                                    : "bg-white/[0.03] border-white/[0.06] hover:border-white/[0.12]"
+                                ? "bg-[#D4AF37]/10 border-[#D4AF37]/30"
+                                : "bg-white/[0.03] border-white/[0.06] hover:border-white/[0.12]"
                                 }`}
                         >
                             <div className="flex items-start justify-between mb-2">
                                 <div>
-                                    <span className="text-[10px] font-bold text-[#D4AF37] uppercase tracking-wider">{std.category}</span>
-                                    <h3 className="text-sm font-bold mt-0.5">{std.code}</h3>
+                                    <h3 className="font-bold text-[#D4AF37]">{std.id}</h3>
+                                    <p className="text-sm text-white/60 mt-1 line-clamp-2">{std.title}</p>
+                                    <div className="flex items-center gap-3 mt-3">
+                                        <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded text-white/40">{std.category}</span>
+                                        <span className="text-[10px] text-[#D4AF37]/60">{std.mandatoryRequirements.length} <T>requirements</T></span>
+                                    </div>
                                 </div>
                                 <ExternalLink className="w-4 h-4 text-white/20 shrink-0" />
-                            </div>
-                            <p className="text-xs text-white/50 mb-3">{std.title}</p>
-                            <div className="flex items-center gap-3 text-[10px] text-white/25">
-                                <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {std.lastUpdated}</span>
-                                <span className="flex items-center gap-1"><Tag className="w-3 h-3" /> {std.mandatoryRequirements.length} requirements</span>
                             </div>
                         </motion.div>
                     ))}
@@ -143,21 +156,26 @@ export default function WikiPage() {
                                     <X className="w-4 h-4" />
                                 </button>
                                 <span className="text-[10px] font-bold text-[#D4AF37] uppercase tracking-wider">{selectedData.category}</span>
-                                <h2 className="text-lg font-bold mt-1 mb-1">{selectedData.code}</h2>
-                                <p className="text-xs text-white/50 mb-4">{selectedData.description}</p>
-                                <h4 className="text-[11px] font-bold text-white/60 uppercase tracking-[0.12em] mb-3">Mandatory Requirements</h4>
-                                <div className="space-y-2">
-                                    {selectedData.mandatoryRequirements.map((req, i) => (
-                                        <div key={i} className="flex items-start gap-2 p-3 bg-white/[0.03] border border-white/[0.06] rounded-lg">
-                                            <span className="text-[#D4AF37] text-xs font-bold mt-0.5">{i + 1}.</span>
-                                            <span className="text-xs text-white/60 leading-relaxed">{req}</span>
-                                        </div>
-                                    ))}
+                                <h2 className="text-xl font-bold">{selectedData.id}</h2>
+                                <p className="text-white/60 mt-2">{selectedData.title}</p>
+                                <div className="mt-4 pt-4 border-t border-white/10">
+                                    <h3 className="font-bold text-[#D4AF37] text-sm mb-3"><T>Mandatory Requirements</T></h3>
+                                    <div className="space-y-2">
+                                        {selectedData.mandatoryRequirements.map((req, i) => (
+                                            <div key={i} className="flex items-start gap-2 p-3 bg-white/[0.03] border border-white/[0.06] rounded-lg">
+                                                <span className="text-[#D4AF37] text-xs font-bold mt-0.5">{i + 1}.</span>
+                                                <span className="text-xs text-white/60 leading-relaxed">{req}</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             </motion.div>
                         ) : (
                             <div className="bg-white/[0.03] backdrop-blur-md border border-white/[0.06] rounded-2xl p-5 flex-1 flex items-center justify-center">
-                                <p className="text-white/20 text-sm text-center">Select a standard to view details</p>
+                                <div className="h-full flex flex-col items-center justify-center text-center opacity-50 p-8">
+                                    <BookOpen className="w-16 h-16 text-white/20 mb-4" />
+                                    <h3 className="text-lg font-bold text-white/80"><T>Select a standard to view details</T></h3>
+                                </div>
                             </div>
                         )}
                     </AnimatePresence>
@@ -165,23 +183,49 @@ export default function WikiPage() {
                     {/* Ask the Auditor Chat */}
                     <div className="bg-white/[0.03] backdrop-blur-md border border-white/[0.06] rounded-2xl flex flex-col h-[280px] shrink-0 overflow-hidden">
                         <div className="p-3 border-b border-white/[0.06] flex items-center gap-2">
-                            <Bot className="w-4 h-4 text-[#D4AF37]" />
-                            <span className="text-xs font-bold">Ask the Auditor</span>
-                            <span className="text-[9px] text-emerald-400 ml-auto font-semibold">ONLINE</span>
+                            <div className="w-8 h-8 rounded-full bg-[#D4AF37]/20 flex items-center justify-center border border-[#D4AF37]/30">
+                                <MessageSquare className="w-4 h-4 text-[#D4AF37]" />
+                            </div>
+                            <div>
+                                <h2 className="text-sm font-bold"><T>Ask the Auditor</T></h2>
+                                <span className="text-[10px] text-emerald-400 flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> <T>ONLINE</T>
+                                </span>
+                            </div>
                         </div>
                         <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
                             {chatMessages.map((msg) => (
                                 <div key={msg.id} className={`flex gap-2 ${msg.role === "user" ? "justify-end" : ""}`}>
                                     {msg.role === "assistant" && <Bot className="w-4 h-4 text-[#D4AF37] shrink-0 mt-1" />}
-                                    <div className={`max-w-[85%] px-3 py-2 rounded-xl text-[11px] leading-relaxed ${msg.role === "user"
+                                    <div>
+                                        <div className={`max-w-[85%] px-3 py-2 rounded-xl text-[11px] leading-relaxed ${msg.role === "user"
                                             ? "bg-[#D4AF37]/20 text-white/80"
                                             : "bg-white/[0.05] text-white/60"
-                                        }`}>
-                                        {msg.content}
+                                            }`}>
+                                            {msg.content}
+                                        </div>
+                                        {msg.sources && msg.sources.length > 0 && (
+                                            <div className="flex flex-wrap gap-1 mt-1">
+                                                {msg.sources.map((s, i) => (
+                                                    <span key={i} className="text-[9px] px-1.5 py-0.5 bg-[#D4AF37]/10 text-[#D4AF37]/70 rounded font-mono">
+                                                        {s.standardCode}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                     {msg.role === "user" && <User className="w-4 h-4 text-white/30 shrink-0 mt-1" />}
                                 </div>
                             ))}
+                            {isChatLoading && (
+                                <div className="flex gap-2">
+                                    <Bot className="w-4 h-4 text-[#D4AF37] shrink-0 mt-1" />
+                                    <div className="px-3 py-2 bg-white/[0.05] rounded-xl">
+                                        <Loader2 className="w-4 h-4 text-[#D4AF37] animate-spin" />
+                                    </div>
+                                </div>
+                            )}
+                            <div ref={chatEndRef} />
                         </div>
                         <div className="p-3 border-t border-white/[0.06] flex gap-2">
                             <input
